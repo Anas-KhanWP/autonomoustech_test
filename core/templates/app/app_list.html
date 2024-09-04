@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+
+{% block title %}App List{% endblock %}
+
+{% block content %}
+    <h1>App List</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Create App</button>
+    </form>
+    <ul>
+        {% for app in apps %}
+        <li>
+            <a href="{% url 'api/apps' app.pk %}">{{ app.name }}</a>
+        </li>
+        {% endfor %}
+    </ul>
+    {% if error %}
+    <p style="color: red;">{{ error }}</p>
+    {% endif %}
+{% endblock %}

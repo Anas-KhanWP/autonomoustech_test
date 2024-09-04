@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from .models import App, Plan, Subscriptions
 from django.contrib.auth.models import User
+from django.contrib.auth.forms import PasswordResetForm, SetPasswordForm
+from django.utils.translation import gettext_lazy as _
 
 class PlanSerializer(serializers.ModelSerializer):
     """
@@ -78,3 +80,66 @@ class LoginSerializer(serializers.Serializer):
     """
     username = serializers.CharField()
     password = serializers.CharField(write_only=True)  # Make password write-only
+    
+class PasswordResetRequestSerializer(serializers.Serializer):
+    """
+    Serializer for password reset request.
+
+    Attributes:
+    - username: A CharField for the username.
+
+    Methods:
+    - validate_username: Validates the username field. Raises ValidationError if the user does not exist.
+    """
+    username = serializers.CharField()
+
+    def validate_username(self, value):
+        """
+        Validates the username field. Raises ValidationError if the user does not exist.
+
+        Parameters:
+        - value (str): The username to validate.
+
+        Returns:
+        - value (str): The validated username.
+
+        Raises:
+        - serializers.ValidationError: If the user does not exist.
+        """
+        try:
+            user = User.objects.get(username=value)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("User not found.")
+        return value
+
+
+class SetNewPasswordSerializer(serializers.Serializer):
+    """
+    Serializer for setting a new password.
+
+    Attributes:
+    - new_password1: A CharField for the new password, marked as write-only.
+    - new_password2: A CharField for confirming the new password, marked as write-only.
+
+    Methods:
+    - validate: Validates the new password fields. Raises ValidationError if the passwords do not match.
+    """
+    new_password1 = serializers.CharField(write_only=True)
+    new_password2 = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        """
+        Validates the new password fields. Raises ValidationError if the passwords do not match.
+
+        Parameters:
+        - data (dict): The data to validate.
+
+        Returns:
+        - data (dict): The validated data.
+
+        Raises:
+        - serializers.ValidationError: If the passwords do not match.
+        """
+        if data['new_password1'] != data['new_password2']:
+            raise serializers.ValidationError("The two password fields didn't match.")
+        return data

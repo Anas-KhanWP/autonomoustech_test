@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block title %}App Detail{% endblock %}
+
+{% block content %}
+    <h1>App Detail</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" name="update">Update</button>
+        <button type="submit" name="delete">Delete</button>
+    </form>
+    <p><a href="{% url 'app_list' %}">Back to List</a></p>
+{% endblock %}

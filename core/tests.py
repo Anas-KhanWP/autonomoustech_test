@@ -1,5 +1,8 @@
 from django.test import TestCase
 from django.urls import reverse
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.encoding import force_bytes
 from rest_framework import status
 from rest_framework.test import APITestCase
 from django.contrib.auth.models import User
@@ -242,3 +245,81 @@ class AuthTests(APITestCase):
         self.client.login(username='testuser', password='password123')
         response = self.client.post(reverse('logout'))
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        
+class PasswordResetRequestTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='testuser', email='testuser@example.com', password='password123')
+        self.url = reverse('password_reset_request')
+
+    def test_password_reset_request_success(self):
+        data = {'username': 'testuser'}
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('uid', response.data)
+        self.assertIn('token', response.data)
+        
+        uid = response.data['uid']
+        token = response.data['token']
+        
+        # Ensure that the uid and token are valid
+        decoded_uid = urlsafe_base64_decode(uid).decode()
+        self.assertEqual(int(decoded_uid), self.user.pk)
+        self.assertTrue(default_token_generator.check_token(self.user, token))
+
+    def test_password_reset_request_invalid_user(self):
+        data = {'username': 'nonexistentuser'}
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('username', response.data)
+
+class SetNewPasswordTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='testuser', email='testuser@example.com', password='password123')
+        self.uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+        self.token = default_token_generator.make_token(self.user)
+        self.url = reverse('password_reset_confirm', kwargs={'uidb64': self.uid, 'token': self.token})
+
+    def test_set_new_password_success(self):
+        data = {
+            'new_password1': 'newpassword123',
+            'new_password2': 'newpassword123'
+        }
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('newpassword123'))
+
+    def test_set_new_password_mismatched(self):
+        data = {
+            'new_password1': 'newpassword123',
+            'new_password2': 'differentpassword'
+        }
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('non_field_errors', response.data)
+
+    def test_set_new_password_invalid_token(self):
+        invalid_token_url = reverse('password_reset_confirm', kwargs={'uidb64': self.uid, 'token': 'invalid-token'})
+        data = {
+            'new_password1': 'newpassword123',
+            'new_password2': 'newpassword123'
+        }
+        response = self.client.post(invalid_token_url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Error', response.data)
+
+    def test_set_new_password_invalid_uid(self):
+        invalid_uid_url = reverse('password_reset_confirm', kwargs={'uidb64': 'invalid-uid', 'token': self.token})
+        data = {
+            'new_password1': 'newpassword123',
+            'new_password2': 'newpassword123'
+        }
+        response = self.client.post(invalid_uid_url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Error', response.data)

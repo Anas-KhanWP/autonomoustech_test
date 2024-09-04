@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+
+{% block title %}Subscription Detail{% endblock %}
+
+{% block content %}
+<h2>Subscription Detail</h2>
+<p>Plan: {{ subscription.plan.name }}</p>
+<p>Start Date: {{ subscription.start_date }}</p>
+<p>End Date: {{ subscription.end_date }}</p>
+<a href="{% url 'subscription-update' subscription.id %}">Edit</a>
+{% endblock %}
