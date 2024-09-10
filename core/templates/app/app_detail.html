@@ -3,12 +3,16 @@
 {% block title %}App Detail{% endblock %}
 
 {% block content %}
+<div class="app-detail-container">
     <h1>App Detail</h1>
     <form method="post">
         {% csrf_token %}
         {{ form.as_p }}
-        <button type="submit" name="update">Update</button>
-        <button type="submit" name="delete">Delete</button>
+        <div class="form-buttons">
+            <button type="submit" name="update" class="btn">Update</button>
+            <button type="submit" name="delete" class="btn btn-danger">Delete</button>
+        </div>
     </form>
-    <p><a href="{% url 'app_list' %}">Back to List</a></p>
+    <p><a href="{% url 'app-list-create-view' %}" class="back-link">Back to List</a></p>
+</div>
 {% endblock %}

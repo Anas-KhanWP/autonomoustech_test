@@ -1,19 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}My App{% endblock %}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
 </head>
+
 <body>
     <header>
-        <h1>My App</h1>
+        <h1><a href="{% url 'app-list-create-view' %}">My App</a></h1>
         <nav>
             <ul>
+                <li><a href="{% url 'app-list-create-view' %}">Home</a></li>
+                <li><a href="{% url 'plan-list' %}">Plans</a></li>
+                <li><a href="{% url 'subscription-create' %}">Create Subscription</a></li>
+                <li><a href="{% url 'logout' %}">Logout</a></li>
+                <li><a href="{% url 'login-view' %}">Login</a></li>
+                <li><a href="{% url 'register' %}">Register</a></li>
+                <li><a href="{% url 'password_reset_request' %}">Forgot Password</a></li>
             </ul>
         </nav>
     </header>
-    
+
     <main>
         {% block content %}
         {% endblock %}
@@ -21,6 +32,8 @@
 
     <footer>
         <p>&copy; 2024 My App</p>
+        <script src="{% static 'js/script.js' %}"></script>
     </footer>
 </body>
+
 </html>

@@ -3,10 +3,12 @@
 {% block title %}Create Subscription{% endblock %}
 
 {% block content %}
-<h2>Create Subscription</h2>
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Save</button>
-</form>
+<div class="subscription-form-container">
+    <h2>Create Subscription</h2>
+    <form method="post" class="subscription-form">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn-submit">Save</button>
+    </form>
+</div>
 {% endblock %}

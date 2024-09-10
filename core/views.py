@@ -20,7 +20,7 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes
 from .forms import AppForm
 from pprint import pprint
-import requests
+import requests, json
 
 # App Views
 class AppListCreateHTMLView(View):
@@ -53,7 +53,7 @@ class AppListCreateHTMLView(View):
             if response.status_code == 201:
                 print("valid form")
                 # Success - redirect to the list view
-                return redirect('app/app_list.html')
+                return redirect('app-list-create-view')
             else:
                 # API error - render with error message
                 error = response.json().get('detail', 'Error occurred')
@@ -82,10 +82,10 @@ class AppDetailHTMLView(View):
             form = AppForm(request.POST, instance=app)
             if form.is_valid():
                 form.save()
-                return redirect('app/app_list')
+                return redirect('app-list-create-view')
         elif 'delete' in request.POST:
             app.delete()
-            return redirect('app/app_list')
+            return redirect('app-list-create-view')
         return render(request, 'app/app_detail.html', {'app': app, 'form': AppForm(instance=app)})
 
 
@@ -181,7 +181,7 @@ class RegisterHTMLView(View):
         response = self.register_api(username, password, email)
         
         if response.status_code == 201:  # 201 Created
-            return redirect('api/login')  # Redirect to login page after successful registration
+            return redirect('login-view')  # Redirect to login page after successful registration
         else:
             return render(request, 'registration/register.html', {'error': response.json().get('non_field_errors')})
 
@@ -225,25 +225,42 @@ class LoginView(View):
         username = request.POST.get('username')
         password = request.POST.get('password')
         
-        # Call the API endpoint for login
         response = self.login_api(username, password)
         
+        print(f"Response Status Code: {response.status_code}")
+        print(f"Response Content: {response.content}")
+        
         if response.status_code == 200:
-            token = response.json().get('token')
-            request.session['token'] = token  # Save token in session
-            return redirect('/api/apps/')
+            try:
+                data = response.json()
+                token = data.get('token')
+                request.session['token'] = token
+                return redirect('http://127.0.0.1:8000/api/apps/')
+            except ValueError:
+                return render(request, 'login.html', {'error': 'Invalid JSON response'})
         else:
-            return render(request, 'login.html', {'error': response.json().get('Message')})
+            return render(request, 'login.html', {'error': response.text})
 
     def login_api(self, username, password):
         """
         Calls the API endpoint to authenticate the user.
         """
-        import requests
         
         api_url = 'http://127.0.0.1:8000/api/auth/login/'
-        response = requests.post(api_url, json={'username': username, 'password': password})
+        payload = {
+            'username': username,
+            'password': password
+        }
+        
+        # Perform the POST request with JSON payload
+        response = requests.post(api_url, json=payload)
+        
+        # Optionally, print or log the response content for debugging
+        print('Response Content:', response.content)
+        print('Response Status Code:', response.status_code)
+        
         return response
+
 
 class LoginAPIView(APIView):
     """

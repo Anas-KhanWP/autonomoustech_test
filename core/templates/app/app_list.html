@@ -3,20 +3,25 @@
 {% block title %}App List{% endblock %}
 
 {% block content %}
-    <h1>App List</h1>
+<h1>App List</h1>
+
+<div class="form-container">
     <form method="post">
         {% csrf_token %}
         {{ form.as_p }}
-        <button type="submit">Create App</button>
+        <button type="submit" class="btn">Create App</button>
     </form>
-    <ul>
-        {% for app in apps %}
-        <li>
-            <a href="{% url 'api/apps' app.pk %}">{{ app.name }}</a>
-        </li>
-        {% endfor %}
-    </ul>
-    {% if error %}
-    <p style="color: red;">{{ error }}</p>
-    {% endif %}
+</div>
+
+<ul class="app-list">
+    {% for app in apps %}
+    <li class="app-item">
+        <a href="{% url 'app-detail-view' app.pk %}" class="app-link">{{ app.name }}</a>
+    </li>
+    {% endfor %}
+</ul>
+
+{% if error %}
+<p class="error">{{ error }}</p>
+{% endif %}
 {% endblock %}
