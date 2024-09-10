@@ -22,20 +22,25 @@ from django.utils.encoding import force_bytes
 from .forms import AppForm, SubscriptionForm, PasswordResetRequestForm, SetNewPasswordForm
 from pprint import pprint
 from django.urls import reverse, reverse_lazy
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.conf import settings
+from requests.exceptions import RequestException
 import requests, json
 
 # App Views
-class AppListCreateHTMLView(View):
+
+class AppListCreateHTMLView(LoginRequiredMixin, View):
     """
     A view for listing all Apps and creating new Apps.
     """
 
     def get(self, request):
         """
-        Renders the list of all Apps.
+        Renders the list of all Apps and initializes the form.
         """
         apps = App.objects.all()
-        return render(request, 'app/app_list.html', {'apps': apps})
+        form = AppForm()  # Initialize an empty form
+        return render(request, 'app/app_list.html', {'apps': apps, 'form': form})
 
     def post(self, request):
         """
@@ -43,27 +48,38 @@ class AppListCreateHTMLView(View):
         """
         form = AppForm(request.POST)
         if form.is_valid():
-            # Prepare data for API request, excluding 'user'
+            # Prepare data for API request, including 'user'
             data = {
                 'name': form.cleaned_data['name'],
                 'description': form.cleaned_data['description'],
                 'user': request.user.pk,  # Assuming user is logged in
             }
             pprint(data)
-            response = requests.post('http://127.0.0.1:8000/api/auth/apps/', json=data)
-            
-            if response.status_code == 201:
-                print("valid form")
-                # Success - redirect to the list view
-                return redirect('app-list-create-view')
-            else:
-                # API error - render with error message
-                error = response.json().get('detail', 'Error occurred')
-                return render(request, 'app/app_list.html', {'form': form, 'error': error})
 
-        return render(request, 'app/app_list.html', {'form': form, 'error': 'Form is not valid.'})
+            # Retrieve token from session
+            token = request.session.get('token')
+            headers = {'Authorization': f'Token {token}'}
 
-class AppDetailHTMLView(View):
+            try:
+                response = requests.post(f'{settings.API_BASE_URL}/apps/', json=data, headers=headers)
+                if response.status_code == 201:
+                    # Success - redirect to the list view
+                    return redirect('app-list-create-view')
+                else:
+                    # API error - render with error message
+                    error = response.json().get('detail', 'An error occurred while creating the app.')
+            except requests.exceptions.RequestException as e:
+                error = f'API request failed: {e}'
+        else:
+            error = 'Form is not valid.'
+
+        # Render the form again with the error message
+        apps = App.objects.all()
+        return render(request, 'app/app_list.html', {'apps': apps, 'form': form, 'error': error})
+
+
+
+class AppDetailHTMLView(LoginRequiredMixin, View):
     """
     A view for viewing, updating, and deleting a specific App.
     """
@@ -101,6 +117,7 @@ class AppListCreateView(generics.ListCreateAPIView):
     """
     queryset = App.objects.all()
     serializer_class = AppSerializer
+    permission_classes = [IsAuthenticated]
 
 
 class AppRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
@@ -113,25 +130,30 @@ class AppRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     """
     queryset = App.objects.all()
     serializer_class = AppSerializer
+    permission_classes = [IsAuthenticated]
 
-class PlanListHTMLView(View):
+class PlanListHTMLView(LoginRequiredMixin, View):
     """
     A view to render a list of plans by calling the REST API.
     """
     template_name = 'plan/plan_list.html'
     
     def get(self, request, *args, **kwargs):
+        token = request.session.get('token')  # Retrieve the token from the session
+        headers = {'Authorization': f'Token {token}'}  # Include the token in the headers
+
         try:
-            # Call the REST API to get the list of plans
-            response = requests.get(f"http://127.0.0.1:8000/api/auth/plans/")
+            # Call the REST API to get the list of plans with the authentication token
+            response = requests.get(f"{settings.API_BASE_URL}/plans/", headers=headers)
             response.raise_for_status()  # Raise an exception for HTTP errors
             plans = response.json()
-        except requests.RequestException as e:
+        except RequestException as e:
             # Handle request errors
             plans = []
             print(f"Error fetching plans: {e}")
 
         return render(request, self.template_name, {'plans': plans})
+
 
 # Plan Views
 class PlanListView(generics.ListAPIView):
@@ -143,7 +165,9 @@ class PlanListView(generics.ListAPIView):
     serializer_class: The serializer class to use for serializing Plan objects.
     """
     queryset = Plan.objects.all()
+    print(queryset)
     serializer_class = PlanSerializer
+    permission_classes = [IsAuthenticated]
 
 
 class SubscriptionCreateView(generics.CreateAPIView):
@@ -156,8 +180,9 @@ class SubscriptionCreateView(generics.CreateAPIView):
     """
     queryset = Subscriptions.objects.all()
     serializer_class = SubscriptionsSerializer
+    permission_classes = [IsAuthenticated]
 
-class SubscriptionDetailView(View):
+class SubscriptionDetailView(LoginRequiredMixin, View):
     """
     A view to retrieve and update subscription details.
     """
@@ -199,18 +224,19 @@ class SubscriptionRetrieveUpdateView(generics.RetrieveUpdateAPIView):
     """
     queryset = Subscriptions.objects.all()
     serializer_class = SubscriptionsSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_object(self):
         # Override get_object to use the 'pk' from URL kwargs
-        pk = self.kwargs.get('pk')  # Change this to 'app_id' if you use that in the URL
+        pk = self.kwargs.get('pk')
         return Subscriptions.objects.get(pk=pk)
     
-class SubscriptionListView(ListView):
+class SubscriptionListView(LoginRequiredMixin, ListView):
     """
     This view displays a list of all Subscriptions.
     """
     model = Subscriptions
-    template_name = 'subscriptions/subscription_list.html'  # Corrected path
+    template_name = 'subscriptions/subscription_list.html'
     context_object_name = 'subscriptions'
 
 class SubscriptionListAPIView(generics.ListAPIView):
@@ -219,6 +245,7 @@ class SubscriptionListAPIView(generics.ListAPIView):
     """
     queryset = Subscriptions.objects.all()
     serializer_class = SubscriptionsSerializer
+    permission_classes = [IsAuthenticated]
 
 class RegisterHTMLView(View):
     """
@@ -251,7 +278,7 @@ class RegisterHTMLView(View):
         """
         Calls the API endpoint to register the user.
         """
-        api_url = 'http://127.0.0.1:8000/api/auth/register/'
+        api_url = f'{settings.API_BASE_URL}/register/'
         response = requests.post(api_url, json={'username': username, 'password': password, 'email': email})
         return response
 
@@ -287,42 +314,41 @@ class LoginView(View):
         username = request.POST.get('username')
         password = request.POST.get('password')
         
+        # Call the API to authenticate the user
         response = self.login_api(username, password)
-        
-        print(f"Response Status Code: {response.status_code}")
-        print(f"Response Content: {response.content}")
         
         if response.status_code == 200:
             try:
                 data = response.json()
                 token = data.get('token')
-                request.session['token'] = token
-                return redirect('http://127.0.0.1:8000/api/apps/')
+                request.session['token'] = token  # Store the token in the session
+
+                # Authenticate the user locally within Django
+                user = authenticate(username=username, password=password)
+
+                if user is not None:
+                    # Log the user in
+                    login(request, user)
+                    return redirect('app-list-create-view')  # Redirect to the app list view
+                else:
+                    return render(request, 'registration/login.html', {'error': 'Authentication failed. Please try again.'})
             except ValueError:
-                return render(request, 'login.html', {'error': 'Invalid JSON response'})
+                return render(request, 'registration/login.html', {'error': 'Invalid JSON response from API'})
         else:
-            return render(request, 'login.html', {'error': response.text})
+            return render(request, 'registration/login.html', {'error': response.text})
 
     def login_api(self, username, password):
         """
         Calls the API endpoint to authenticate the user.
         """
-        
-        api_url = 'http://127.0.0.1:8000/api/auth/login/'
+        api_url = f'{settings.API_BASE_URL}/login/'
         payload = {
             'username': username,
             'password': password
         }
         
-        # Perform the POST request with JSON payload
         response = requests.post(api_url, json=payload)
-        
-        # Optionally, print or log the response content for debugging
-        print('Response Content:', response.content)
-        print('Response Status Code:', response.status_code)
-        
         return response
-
 
 class LoginAPIView(APIView):
     """
@@ -359,8 +385,33 @@ class LoginAPIView(APIView):
                 return Response({'Message': 'Invalid Username or Password'}, status=status.HTTP_401_UNAUTHORIZED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class LogoutView(LoginRequiredMixin, View):
+    """
+    A view that triggers the LogoutAPIView to log out the user.
+    """
+    
+    def get(self, request):
+        """
+        Handle GET requests to logout by triggering the POST request.
+        """
+        return self.post(request)
 
-class LogoutView(APIView):
+    def post(self, request):
+        """
+        Sends a POST request to the LogoutAPIView to log out the user.
+        """
+        # Make a POST request to the LogoutAPIView
+        response = requests.post(f'{settings.API_BASE_URL}/logout/', cookies=request.COOKIES)
+        print(request)
+
+        if response.status_code == 204:
+            # Logout successful, redirect to login page or home page
+            return redirect('login-view')  # Replace 'login' with your login URL name
+        else:
+            # Handle any errors or redirect appropriately
+            return redirect('login-view')  # Replace 'home' with your home URL name
+
+class LogoutAPIView(APIView):
     """
     A view for logging out users.
     """
@@ -390,7 +441,7 @@ class PasswordResetRequestHTMLView(View):
         form = PasswordResetRequestForm(request.POST)
         if form.is_valid():
             username = form.cleaned_data['username']
-            response = requests.post('http://127.0.0.1:8000/api/auth/password-reset-request/', data={'username': username})
+            response = requests.post(f'{settings.API_BASE_URL}/password-reset-request/', data={'username': username})
             if response.status_code == 200:
                 data = response.json()
                 uid = data['uid']
@@ -419,7 +470,7 @@ class SetNewPasswordHTMLView(View):
                 'new_password1': form.cleaned_data['new_password1'],
                 'new_password2': form.cleaned_data['new_password2'],
             }
-            response = requests.post(f'http://127.0.0.1:8000/api/auth/password-reset-confirm/{uidb64}/{token}/', data=data)
+            response = requests.post(f'{settings.API_BASE_URL}/password-reset-confirm/{uidb64}/{token}/', data=data)
             if response.status_code == status.HTTP_200_OK:
                 return redirect('login-view')
             else:

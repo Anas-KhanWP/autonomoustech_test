@@ -63,7 +63,7 @@ ROOT_URLCONF = 'app_dashboard.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'core/templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -120,6 +120,11 @@ USE_I18N = True
 
 USE_TZ = True
 
+LOGIN_URL = 'login-view'
+
+LOGIN_REDIRECT_URL = 'api/apps/'
+
+API_BASE_URL = "http://127.0.0.1:8000/api/auth"
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
