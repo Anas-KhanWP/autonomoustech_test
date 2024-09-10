@@ -3,13 +3,11 @@
 {% block title %}Subscription Detail{% endblock %}
 
 {% block content %}
-<div class="subscription-detail-container">
-    <h2>Subscription Detail</h2>
-    <div class="subscription-info">
-        <p><strong>Plan:</strong> {{ subscription.plan.name }}</p>
-        <p><strong>Start Date:</strong> {{ subscription.start_date }}</p>
-        <p><strong>End Date:</strong> {{ subscription.end_date }}</p>
-    </div>
-    <a href="{% url 'subscription-update' subscription.id %}" class="btn">Edit</a>
-</div>
+<h2>Subscription Detail</h2>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Save Changes</button>
+</form>
+<p><a href="{% url 'subscription-list-view' %}">Back to List</a></p>
 {% endblock %}

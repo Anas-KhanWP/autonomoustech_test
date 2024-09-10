@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.views.generic import ListView
 from rest_framework import generics
 from .models import App, Plan, Subscriptions
 from .serializers import AppSerializer, PlanSerializer, SubscriptionsSerializer, UserSerializer, LoginSerializer, PasswordResetRequestSerializer, SetNewPasswordSerializer
@@ -18,8 +19,9 @@ from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes
-from .forms import AppForm
+from .forms import AppForm, SubscriptionForm, PasswordResetRequestForm, SetNewPasswordForm
 from pprint import pprint
+from django.urls import reverse, reverse_lazy
 import requests, json
 
 # App Views
@@ -112,6 +114,24 @@ class AppRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = App.objects.all()
     serializer_class = AppSerializer
 
+class PlanListHTMLView(View):
+    """
+    A view to render a list of plans by calling the REST API.
+    """
+    template_name = 'plan/plan_list.html'
+    
+    def get(self, request, *args, **kwargs):
+        try:
+            # Call the REST API to get the list of plans
+            response = requests.get(f"http://127.0.0.1:8000/api/auth/plans/")
+            response.raise_for_status()  # Raise an exception for HTTP errors
+            plans = response.json()
+        except requests.RequestException as e:
+            # Handle request errors
+            plans = []
+            print(f"Error fetching plans: {e}")
+
+        return render(request, self.template_name, {'plans': plans})
 
 # Plan Views
 class PlanListView(generics.ListAPIView):
@@ -137,6 +157,33 @@ class SubscriptionCreateView(generics.CreateAPIView):
     queryset = Subscriptions.objects.all()
     serializer_class = SubscriptionsSerializer
 
+class SubscriptionDetailView(View):
+    """
+    A view to retrieve and update subscription details.
+    """
+
+    def get(self, request, pk):
+        # Retrieve the subscription object based on primary key
+        subscription = get_object_or_404(Subscriptions, pk=pk)
+        form = SubscriptionForm(instance=subscription)
+        return render(request, 'subscriptions/subscription_detail.html', {
+            'form': form,
+            'subscription': subscription
+        })
+
+    def post(self, request, pk):
+        # Retrieve the subscription object based on primary key
+        subscription = get_object_or_404(Subscriptions, pk=pk)
+        form = SubscriptionForm(request.POST, instance=subscription)
+
+        if form.is_valid():
+            form.save()
+            return redirect('subscription-detail-view', pk=pk)
+
+        return render(request, 'subscriptions/subscription_detail.html', {
+            'form': form,
+            'subscription': subscription
+        })
 
 # Subscription Views
 class SubscriptionRetrieveUpdateView(generics.RetrieveUpdateAPIView):
@@ -157,6 +204,21 @@ class SubscriptionRetrieveUpdateView(generics.RetrieveUpdateAPIView):
         # Override get_object to use the 'pk' from URL kwargs
         pk = self.kwargs.get('pk')  # Change this to 'app_id' if you use that in the URL
         return Subscriptions.objects.get(pk=pk)
+    
+class SubscriptionListView(ListView):
+    """
+    This view displays a list of all Subscriptions.
+    """
+    model = Subscriptions
+    template_name = 'subscriptions/subscription_list.html'  # Corrected path
+    context_object_name = 'subscriptions'
+
+class SubscriptionListAPIView(generics.ListAPIView):
+    """
+    This view provides a list of all Subscriptions.
+    """
+    queryset = Subscriptions.objects.all()
+    serializer_class = SubscriptionsSerializer
 
 class RegisterHTMLView(View):
     """
@@ -314,6 +376,56 @@ class LogoutView(APIView):
         """
         logout(request)
         return Response(status=status.HTTP_204_NO_CONTENT)
+    
+class PasswordResetRequestHTMLView(View):
+    """
+    View for rendering the password reset request form and handling submission.
+    """
+
+    def get(self, request):
+        form = PasswordResetRequestForm()
+        return render(request, 'registration/password_reset_request.html', {'form': form})
+
+    def post(self, request):
+        form = PasswordResetRequestForm(request.POST)
+        if form.is_valid():
+            username = form.cleaned_data['username']
+            response = requests.post('http://127.0.0.1:8000/api/auth/password-reset-request/', data={'username': username})
+            if response.status_code == 200:
+                data = response.json()
+                uid = data['uid']
+                token = data['token']
+                # Assuming you want to redirect to a confirmation page
+                confirm_url = reverse('password-reset-confirm-view', kwargs={'uidb64': uid, 'token': token})
+                return redirect(confirm_url)
+            else:
+                # Handle API error responses
+                return render(request, 'registration/password_reset_request.html', {'form': form, 'error': 'Error processing request.'})
+        return render(request, 'registration/password_reset_request.html', {'form': form})
+    
+class SetNewPasswordHTMLView(View):
+    """
+    View for rendering the set new password form and handling submission.
+    """
+
+    def get(self, request, uidb64, token):
+        form = SetNewPasswordForm()
+        return render(request, 'registration/set_new_password.html', {'form': form, 'uidb64': uidb64, 'token': token})
+
+    def post(self, request, uidb64, token):
+        form = SetNewPasswordForm(request.POST)
+        if form.is_valid():
+            data = {
+                'new_password1': form.cleaned_data['new_password1'],
+                'new_password2': form.cleaned_data['new_password2'],
+            }
+            response = requests.post(f'http://127.0.0.1:8000/api/auth/password-reset-confirm/{uidb64}/{token}/', data=data)
+            if response.status_code == status.HTTP_200_OK:
+                return redirect('login-view')
+            else:
+                # Handle API error
+                return render(request, 'registration/set_new_password.html', {'form': form, 'uidb64': uidb64, 'token': token, 'error': response.json()})
+        return render(request, 'registration/set_new_password.html', {'form': form, 'uidb64': uidb64, 'token': token})
     
 class PasswordResetRequestView(APIView):
     """

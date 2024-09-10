@@ -1,12 +1,22 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
-{% block title %}Plan List{% endblock %}
+{% block title %}Plans{% endblock %}
 
 {% block content %}
-<h2>Plan List</h2>
-<ul>
-    {% for plan in plans %}
-    <li>{{ plan.name }}</li>
-    {% endfor %}
-</ul>
+<h2>Available Plans</h2>
+<div class="plans-container">
+    {% if plans %}
+    <div class="plans-list">
+        {% for plan in plans %}
+        <div class="plan-card">
+            <h3>{{ plan.name }}</h3>
+            <p class="plan-description">{{ plan.description }}</p>
+            <p class="plan-price">${{ plan.price }}</p>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p>No plans available.</p>
+    {% endif %}
+</div>
 {% endblock %}
