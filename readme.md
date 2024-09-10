@@ -106,6 +106,18 @@ Automatically assigns a free plan to a new application upon creation.
 ### `create_default_plans`
 Creates default plans (Free, Standard, Pro) when the system is migrated.
 
+## Docker Deployment
+This project is Docker-ready, making deployment simple and consistent across different environments. Follow the steps below to deploy the application using Docker:
+- ```bash
+    docker-compose run web python manage.py migrate
+    ```
+
+- ```bash
+    docker-compose up
+    ```
+
+The application will now be accessible at http://localhost:8000/.
+
 ## Contact
 
 For any inquiries or feedback, please contact [Email](mailto:anaskhanwp@gmail.com) or [WhatsApp](https://api.whatsapp.com/send?phone=+923152460477&text=Hello).
