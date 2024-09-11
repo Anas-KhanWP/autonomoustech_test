@@ -116,7 +116,7 @@ This project is Docker-ready, making deployment simple and consistent across dif
     docker-compose up
     ```
 
-The application will now be accessible at http://localhost:8000/.
+The application will now be accessible at http://localhost:8000/api/login
 
 ## Contact
 
