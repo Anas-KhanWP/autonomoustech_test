@@ -57,7 +57,7 @@ The Apps Management System is a Django-based application designed to manage subs
     python manage.py runserver
 
 8. **Access the Application**
-   - Open your browser and navigate to http://127.0.0.1:8000/
+   - Open your browser and navigate to http://127.0.0.1:8000/api/login
   
 ## API Endpoints
 
